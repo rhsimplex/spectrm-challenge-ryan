@@ -25,3 +25,4 @@ class WordFrequency(object):
         t = pd.Series(t.value_counts().index)
         mask = t.isin(self.stop_words)
         self.unique_non_stop_words = t[-mask]
+        self.unique_non_stop_words.sort_values(inplace=True)
