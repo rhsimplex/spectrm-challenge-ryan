@@ -80,9 +80,12 @@ def run(test_dialogs_file='challenge_data/test_dialogs.txt',
     test_missing_done = pd.DataFrame(test_missing.values, index=new_index,
                                      columns=['missing'])
     test_missing_done.reindex(new_index)
-    test_missing_done['missing'] = '+++$+++ ' + test_missing_done['missing']
-    test_missing_done.to_csv('test_missing_with_predictions.txt',
-                             sep=' ', header=False)
+
+    # because of the unusual seperator, we can't use the builtin .to_csv
+    with open('test_missing_with_predictions.txt', 'w') as f:
+        for i, label in enumerate(test_missing_done.index):
+            f.write(label + ' +++$+++ '
+                    + test_missing_done.iloc[i]['missing'] + '\n')
     print 'Done!'
 
 if __name__ == '__main__':
