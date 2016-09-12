@@ -4,13 +4,21 @@ from os.path import join
 
 
 class SpectrmLoader(object):
-
+    """
+    Convenience class for loading the Spectrm-formatted datasets
+    """
     def __init__(self, path='challenge_data/', ext='txt'):
+        """
+        Get the filenames containing the data
+        """
         self.data_files = listdir(path)
         self.ext = ext
         self.path = path
 
     def load(self):
+        """
+        Returns a dict of datasets, with filenames as keys, minus the extension
+        """
         return {label[:-(len(self.ext) + 1)]:
                 self.spectrm_file_to_df(join(self.path, label))
                 for label in self.data_files}

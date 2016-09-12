@@ -18,26 +18,31 @@ def softmax(x):
 def run(test_dialogs_file='challenge_data/test_dialogs.txt',
         test_missing_file='challenge_data/test_missing.txt'):
     loader = SpectrmLoader()
+    """
+    Load data, train on a corpus of words from the training data,
+    then predict on `test_missing_file`, replacing the dummy labels
+    with the predicted ones.
+    """
     print 'Loading data.'
     test_dialogs = loader.spectrm_file_to_df(test_dialogs_file)
     print test_dialogs_file + ' loaded.'
     test_missing = loader.spectrm_file_to_df(test_missing_file)
     print test_missing_file + ' loaded.'
+
     print 'Generating corpus.'
     wf_corpus = WordFrequency()
     wf_corpus.get_unique_non_stop_words(test_dialogs)
+
     print 'Generating weights.'
     wf_corpus.generate_weights()
-
     labels = test_dialogs.index.unique()
 
+    print 'Generating model, processing input...'
     input_mat = {}
     target_mat = {}
     wf_input = WordFrequency()
     wf_target = WordFrequency()
     cnt = 0
-
-    print 'Generating model, processing input...'
     # generate model
     for i, label in enumerate(labels):
         # get all the unique stopwords for training and missing
@@ -65,7 +70,7 @@ def run(test_dialogs_file='challenge_data/test_dialogs.txt',
     print 'Converting to dataframes.'
     train_dialog_vectors = pd.DataFrame(input_mat).T.astype('float')
     train_missing_vectors = pd.DataFrame(target_mat).T.astype('float')
-
+    # delete intermediate data structures
     del(input_mat)
     del(target_mat)
 
@@ -76,16 +81,17 @@ def run(test_dialogs_file='challenge_data/test_dialogs.txt',
 
     selections = np.argmax(t_weighted, axis=0)
     new_index = labels[selections]
+
     print 'Writing output.'
     test_missing_done = pd.DataFrame(test_missing.values, index=new_index,
                                      columns=['missing'])
     test_missing_done.reindex(new_index)
-
     # because of the unusual seperator, we can't use the builtin .to_csv
     with open('test_missing_with_predictions.txt', 'w') as f:
         for i, label in enumerate(test_missing_done.index):
             f.write(label + ' +++$+++ '
                     + test_missing_done.iloc[i]['missing'] + '\n')
+
     print 'Done!'
 
 if __name__ == '__main__':
