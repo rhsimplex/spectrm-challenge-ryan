@@ -5,94 +5,110 @@ import numpy as np
 import sys
 
 
-def softmax(x):
-    """
-    Softmax normalizes a vector into a probability distribution.
-    After applying the softmax, the vectors sums to unity.
-    """
-    sf = np.exp(x)
-    sf = sf/np.sum(sf, axis=0)
-    return sf
-
-
 def run(test_dialogs_file='challenge_data/test_dialogs.txt',
-        test_missing_file='challenge_data/test_missing.txt'):
-    loader = SpectrmLoader()
+        test_missing_file='challenge_data/test_missing.txt',
+        limit=None):
     """
     Load data, train on a corpus of words from the training data,
     then predict on `test_missing_file`, replacing the dummy labels
     with the predicted ones.
+
+    Args:
+        test_dialogs_file (str): path to dialogs
+        test_missing_file (str): path to file with missing lines
+        limit (int): Limit the number of dialogs. Can be useful
+            if memory is constrained. Default None (use all)
     """
-    print 'Loading data.'
+    loader = SpectrmLoader()
+    print 'Loading data...'
     test_dialogs = loader.spectrm_file_to_df(test_dialogs_file)
     print test_dialogs_file + ' loaded.'
     test_missing = loader.spectrm_file_to_df(test_missing_file)
     print test_missing_file + ' loaded.'
-
-    print 'Generating corpus.'
+    if limit:
+        labels = test_dialogs.index.unique()[:limit]
+        test_dialogs = test_dialogs.ix[labels]
+    else:
+        labels = test_dialogs.index.unique()
+    print ('Using ' + str(labels.shape[0]) + ' training dialogs and'
+           ' attempting to classify ' + str(test_missing.shape[0]) +
+           ' examples.')
+    print 'Generating corpus...'
     wf_corpus = WordFrequency()
     wf_corpus.get_unique_non_stop_words(test_dialogs)
+    print ('Using ' + str(wf_corpus.unique_non_stop_words.shape[0])
+           + ' unique words.')
 
-    print 'Generating weights.'
+    print 'Generating weights...'
     wf_corpus.generate_weights()
-    labels = test_dialogs.index.unique()
 
     print 'Generating model, processing input...'
     input_mat = {}
-    target_mat = {}
     wf_input = WordFrequency()
-    wf_target = WordFrequency()
     cnt = 0
-    # generate model
-    for i, label in enumerate(labels):
-        # get all the unique stopwords for training and missing
-        wf_input.get_unique_non_stop_words(test_dialogs.ix[label])
-        wf_target.get_unique_non_stop_words(test_missing.iloc[i].text)
 
-        # generate appropriate vectors, including normalization
+    # generate model
+    for label in labels:
+        # get all the unique stopwords for training
+        wf_input.get_unique_non_stop_words(test_dialogs.ix[label])
+
+        # generate a vector with 1s where a word matches a word in the
+        # corpus, zero elsewhere
         input_mat[label] = wf_corpus.unique_non_stop_words.\
             isin(wf_input.unique_non_stop_words)
+
+        # index them to the words themselves -- useful for debugging
         input_mat[label].index = wf_corpus.unique_non_stop_words.values
+        # divide by the norm, so dialogs with many words don't have
+        # an advantage
         norm = np.linalg.norm(input_mat[label])
         if norm > 0.0:
             input_mat[label] = input_mat[label]/norm
-        target_mat[label] = wf_corpus.unique_non_stop_words.\
-            isin(wf_target.unique_non_stop_words)
-        target_mat[label].index = wf_corpus.unique_non_stop_words.values
-        norm = np.linalg.norm(target_mat[label])
-        if norm > 0.0:
-            target_mat[label] = target_mat[label]/norm
 
         cnt += 1
         if cnt % 1000 == 0:
             print 'Records processed: ' + str(cnt)
 
-    print 'Converting to dataframes.'
+    print 'Converting to dataframes...'
     train_dialog_vectors = pd.DataFrame(input_mat).T.astype('float')
-    train_missing_vectors = pd.DataFrame(target_mat).T.astype('float')
     # delete intermediate data structures
     del(input_mat)
-    del(target_mat)
 
-    print 'Doing classification.'
-    t_weighted = np.dot(np.dot(train_dialog_vectors.values, wf_corpus.W),
-                        train_missing_vectors.values.T)
-    t_weighted = np.apply_along_axis(softmax, 0, t_weighted)
-
-    selections = np.argmax(t_weighted, axis=0)
-    new_index = labels[selections]
-
-    print 'Writing output.'
-    test_missing_done = pd.DataFrame(test_missing.values, index=new_index,
-                                     columns=['missing'])
-    test_missing_done.reindex(new_index)
-    # because of the unusual seperator, we can't use the builtin .to_csv
+    print 'Doing classification...'
+    wf_target = WordFrequency()
+    cnt = 0
     with open('test_missing_with_predictions.txt', 'w') as f:
-        for i, label in enumerate(test_missing_done.index):
-            f.write(label + ' +++$+++ '
-                    + test_missing_done.iloc[i]['missing'] + '\n')
+        # load_mat is the product of the normalized dialog vectors times the
+        # word weights, which are inversely proportional to the word frequency
+        # in the corpus
+        load_mat = np.dot(train_dialog_vectors.values, wf_corpus.W)
+        for i in range(test_missing.shape[0]):
+            # we do this in a loop rather than by direct matrix multiplication;
+            # it's slower, but saves us some memory.
+            #
+            # Get the unique stop words out of the target (missing line)
+            wf_target.get_unique_non_stop_words(test_missing.iloc[i].text)
+            # Compose the vector out of words present in the line, and
+            # normalize
+            target_vec = wf_corpus.unique_non_stop_words\
+                .isin(wf_target.unique_non_stop_words)
+            norm = np.linalg.norm(target_vec)
+            if norm > 0.0:
+                target_vec = target_vec/norm
+            # score every weighted input (dialog) against this missing line
+            scores = np.dot(load_mat, target_vec)
+            # the maxiumum score is our best guess to which corresponding row
+            # in train_dialog_vectors that our missing line belongs to
+            pos_max = np.argmax(scores)
+            # get the corresponding label
+            winner = train_dialog_vectors.iloc[pos_max].name
+            # finally, write our output
+            f.write(winner + ' +++$+++ ' + test_missing.iloc[i].text + '\n')
+            cnt += 1
+            if cnt % 500 == 0:
+                print 'Classifications done: ' + str(cnt)
 
-    print 'Done!'
+    print 'Done! Output in test_missing_with_predictions.txt'
 
 if __name__ == '__main__':
     """
