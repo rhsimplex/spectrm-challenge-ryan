@@ -12,4 +12,16 @@ $ pip install -r requirements.txt
 
 ## Running the model
 
-Note: Though the matrices are in quite sparse, I used the regular `numpy` matrix implementation.  That means generating a model can be quite memory intensive.  All my tests were on a desktop with 10 cores and 16GB of memory.  A nice improvement would to have this code use the `scipy` spare matrix implementation.
+Note: Though the matrices are pretty sparse, I used the regular `numpy` matrix implementation.  That means generating a model can be quite memory intensive.  All my tests were on a desktop with 10 cores and 16GB of memory.  A nice improvement would to have this code use the `scipy` sparse matrix implementation.
+
+To run the model on the unlabeled examples, simply run:
+
+```bash
+$ python match_dialogs.py
+```
+
+It knows the default locations.  If you want to run on other datasets, for instance the training set, you can specify:
+
+```bash
+$ python match_dialogs.py challenge_data/train_dialogs.txt challenge_data/train_missing.txt
+```
