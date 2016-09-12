@@ -1,6 +1,7 @@
 import nltk
 from nltk.tokenize import RegexpTokenizer
 import pandas as pd
+import numpy as np
 
 
 class WordFrequency(object):
@@ -26,3 +27,6 @@ class WordFrequency(object):
         mask = t.isin(self.stop_words)
         self.unique_non_stop_words = t[-mask]
         self.unique_non_stop_words.sort_values(inplace=True)
+
+    def generate_weights(self):
+        self.W = np.diag(1./self.counts[self.unique_non_stop_words.values])
