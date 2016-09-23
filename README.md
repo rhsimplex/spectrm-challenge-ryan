@@ -1,6 +1,6 @@
 # Spectrm Challenge
 
-My entry to the Spectrm Challenge.  Uses a very simple word-frequencey model and achieves recall rates around 5-8%. For an explanation on how it works, [see the Jupyter notebook.](https://github.com/rhsimplex/spectrm-challenge-ryan/blob/master/Word%20Frequency%20Model.ipynb)
+My entry to the [Spectrm Challenge](https://github.com/cod3licious/spectrm-challenge).  Uses a very simple word-frequencey model and achieves recall rates around 5-8%. For an explanation on how it works, [see the Jupyter notebook.](https://github.com/rhsimplex/spectrm-challenge-ryan/blob/master/Word%20Frequency%20Model.ipynb)
 
 ## Setup
 
